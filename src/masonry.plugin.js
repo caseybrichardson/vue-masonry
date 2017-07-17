@@ -1,82 +1,110 @@
- import Vue from 'vue'
- import Masonry from 'masonry-layout'
- import ImageLoaded from 'imagesloaded'
+import Vue from 'vue';
+import Masonry from 'masonry-layout';
+import ImageLoaded from 'imagesloaded';
 
- const attributesMap = {
-   'column-width': 'columnWidth',
-   'transition-duration': 'transitionDuration',
-   'item-selector': 'itemSelector',
-   'origin-left': 'originLeft',
-   'origin-top': 'originTop',
-   'stamp': 'stamp',
-   'gutter': 'gutter'
- }
- const EVENT_ADD = 'vuemasonry.itemAdded'
- const EVENT_REMOVE = 'vuemasonry.itemRemoved'
- const EVENT_IMAGE_LOADED = 'vuemasonry.imageLoaded'
+const attributesMap = {
+  'column-width': 'columnWidth',
+  'transition-duration': 'transitionDuration',
+  'item-selector': 'itemSelector',
+  'origin-left': 'originLeft',
+  'origin-top': 'originTop',
+  'stamp': 'stamp',
+  'gutter': 'gutter'
+};
 
- const stringToBool = val => (val + '').toLowerCase() === 'true'
+const typeMap = {
+  'columnWidth': {
+    type: Number
+  },
+  'gutter': {
+    type: Number
+  },
+  'origin-left': {
+    type: Boolean
+  },
+  'origin-right': {
+    type: Boolean
+  }
+};
 
- const collectOptions = attrs => {
-   let res = {}
-   let attributesArray = Array.prototype.slice.call(attrs)
-   attributesArray.forEach(attr => {
-     if (Object.keys(attributesMap).indexOf(attr.name) > -1) {
-       res[ attributesMap[ attr.name ] ] = (attr.name.indexOf('origin') > -1) ? stringToBool(attr.value) : attr.value
-     }
-   })
-   return res
- }
+const EVENT_ADD = 'vuemasonry.itemAdded';
+const EVENT_REMOVE = 'vuemasonry.itemRemoved';
+const EVENT_IMAGE_LOADED = 'vuemasonry.imageLoaded';
 
- var Events = new Vue({})
+const collectOptions = attrs => {
+  let res = {};
+  let attributesArray = Array.prototype.slice.call(attrs);
+  attributesArray.forEach(attr => {
+    if (Object.keys(attributesMap).indexOf(attr.name) > -1) {
+      const name = attributesMap[attr.name];
+      if(typeMap[name]) {
+        let typeFunc = typeMap[name].type;
+        let value = typeFunc(attr.value);
+        if(!isNaN(value)) {
+          res[name] = value;
+        } else {
+          res[name] = attr.value;
+        }
+      } else {
+        res[name] = attr.value;
+      }
+    }
+  });
+  return res;
+};
 
- export var VueMasonryPlugin = function () {}
+let Events = new Vue({});
 
- VueMasonryPlugin.install = function (Vue, options) {
+export let VueMasonryPlugin = function () {};
 
-   Vue.redrawVueMasonry = function () {
-     Events.$emit(EVENT_ADD)
-   }
+VueMasonryPlugin.install = function (Vue, options) {
 
-   Vue.directive('masonry', {
-     props: [ 'transitionDuration', ' itemSelector' ],
+  Vue.redrawVueMasonry = function () {
+    Events.$emit(EVENT_ADD)
+  };
 
-     inserted: function (el, nodeObj) {
-       if (!Masonry) {
-         throw new Error('Masonry plugin is not defined. Please check it\'s connected and parsed correctly.')
-       }
-       var masonry = new Masonry(el, collectOptions(el.attributes))
-       var masonryDraw = () => {
-         masonry.reloadItems()
-         masonry.layout()
-       }
-       Vue.nextTick(function () {
-         masonryDraw()
-       })
+  Vue.directive('masonry', {
+    props: [ 'transitionDuration', ' itemSelector' ],
 
-       Events.$on(EVENT_ADD, function (eventData) {
-         masonryDraw()
-       })
-       Events.$on(EVENT_REMOVE, function (eventData) {
-         masonryDraw()
-       })
-       Events.$on(EVENT_IMAGE_LOADED, function (eventData) {
-         masonryDraw()
-       })
-     }
-   })
+    inserted: function (el, nodeObj) {
+      if (!Masonry) {
+        throw new Error('Masonry plugin is not defined. Please check it\'s connected and parsed correctly.');
+      }
+      let masonry = new Masonry(el, collectOptions(el.attributes));
+      let masonryDraw = () => {
+        masonry.reloadItems();
+        masonry.layout();
+      };
 
-   Vue.directive('masonryTile', {
+      Vue.nextTick(function () {
+        masonryDraw();
+      });
 
-     inserted: function (el) {
-       Events.$emit(EVENT_ADD, { 'element': el })
+      Events.$on(EVENT_ADD, function (eventData) {
+        masonryDraw();
+      });
 
-       new ImageLoaded(el, function () {
-         Events.$emit(EVENT_IMAGE_LOADED, { 'element': el })
-       })
-     },
-     beforeDestroy: function (el) {
-       Events.$emit(EVENT_REMOVE, { 'element': el })
-     }
-   })
- }
+      Events.$on(EVENT_REMOVE, function (eventData) {
+        masonryDraw();
+      });
+
+      Events.$on(EVENT_IMAGE_LOADED, function (eventData) {
+        masonryDraw();
+      })
+    }
+  });
+
+  Vue.directive('masonryTile', {
+
+    inserted: function (el) {
+      Events.$emit(EVENT_ADD, { 'element': el });
+
+      new ImageLoaded(el, function () {
+        Events.$emit(EVENT_IMAGE_LOADED, { 'element': el });
+      })
+    },
+    beforeDestroy: function (el) {
+      Events.$emit(EVENT_REMOVE, { 'element': el });
+    }
+  })
+};
